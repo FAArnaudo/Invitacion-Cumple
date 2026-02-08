@@ -1,15 +1,15 @@
-// ==============================
-// CONFIGURACIÓN GENERAL
-// ==============================
-
 const DEV_MODE = true;
 
 if (DEV_MODE) {
   localStorage.removeItem("invitacion_resuelta");
 }
 
+// ==============================
+// CONFIGURACIÓN GENERAL
+// ==============================
+
 // Código correcto (luego lo ligamos a la imagen)
-const SECRET_CODE = "LUZ"; // ejemplo: puede cambiarse
+const SECRET_CODE = "GATO29"; // ejemplo: puede cambiarse
 
 // ==============================
 // ELEMENTOS DEL DOM
