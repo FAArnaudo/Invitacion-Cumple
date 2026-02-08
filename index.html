@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>¿Te animás a descubrirlo?</title>
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- PANTALLA 1: INTRO -->
+  <section id="intro" class="screen active">
+    <div class="overlay">
+      <h1>Algo se está preparando…</h1>
+      <p>
+        No todos saben dónde es la fiesta.<br />
+        Solo quienes resuelvan el desafío llegarán.
+      </p>
+      <button id="startBtn">Comenzar</button>
+    </div>
+  </section>
+
+  <!-- PANTALLA 2: PUZZLE -->
+  <section id="puzzle" class="screen">
+    <h2>Primer desafío</h2>
+    <p>La respuesta está en la imagen que recibiste…</p>
+
+    <div class="puzzle-box">
+      <input 
+        type="text" 
+        id="codeInput" 
+        placeholder="Ingresá el código" 
+        autocomplete="off"
+      />
+      <button id="checkCode">Verificar</button>
+    </div>
+
+    <p id="errorMsg" class="error"></p>
+  </section>
+
+  <!-- PANTALLA 3: REVELACIÓN -->
+  <section id="reveal" class="screen">
+    <h2>🎉 Bienvenido 🎉</h2>
+    <p class="big">La fiesta es acá:</p>
+
+    <div class="info">
+      <p>📍 Lugar: <strong>Pronto revelado</strong></p>
+      <p>📅 Fecha: <strong>-- / --</strong></p>
+      <p>🕗 Hora: <strong>Desde la tarde</strong></p>
+    </div>
+
+    <p>Guardá esta info… y preparate 😉</p>
+  </section>
+
+  <!-- Script -->
+  <script src="script.js"></script>
+</body>
+</html>
