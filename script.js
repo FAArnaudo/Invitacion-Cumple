@@ -52,7 +52,7 @@ const WORD_HINTS = {
   ],
   michi: [
     "Ese es fácil… algunos dicen que es sinónimo mío.",
-    "Es una forma cariñosa.",
+    "Es una forma cariñosa para un gatito.",
     "Tiene bigotes.",
   ],
   nueve: [
@@ -64,7 +64,7 @@ const WORD_HINTS = {
   takis: ["Eso se come.", "Hace ruido al abrirse.", "Picante… mucho."],
   aliens: [
     "No son de acá.",
-    "Vienen de muy lejos.",
+    "Vienen de muy lejos en O.V.N.I.S.",
     "Miran la Tierra desde arriba.",
   ],
 };
@@ -151,7 +151,7 @@ function guideSpeak(text, options = {}) {
   }, duration + 800);
 }
 
-function guideSilent({ duration = 1500, mood = "neutral", chance = 1 } = {}) {
+function guideSilent({ duration = 1800, mood = "neutral", chance = 1 } = {}) {
   if (
     GUIDE_STATE.screen !== "game" ||
     !GUIDE_STATE.canSpeak ||
@@ -227,7 +227,7 @@ function startIntro() {
   guide.classList.add("intro-top");
 
   setTimeout(() => session === introSession && (bubble.textContent = "La fiesta será en.....", guide.classList.add("show")), 400);
-  setTimeout(() => session === introSession && (bubble.textContent = "OH... Algo del mensaje se perdió en el camino…"), 2200);
+  setTimeout(() => session === introSession && (bubble.textContent = "OH! Algo del mensaje se perdió en el camino…"), 2200);
   setTimeout(() => session === introSession && (introCard.style.animation = "cardEnter 0.9s ease-out forwards"), 4000);
   setTimeout(() => session === introSession && guide.classList.add("silent"), 9800);
 }
