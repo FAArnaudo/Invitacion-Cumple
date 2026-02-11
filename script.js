@@ -19,6 +19,7 @@ let annoyedReacted = false;
 
 const commentedWords = new Set();
 const hintProgress = new Map();
+const initialHintsShown = new Set();
 
 const DEV_MODE = true;
 const STORAGE_KEY = "mensaje_descifrado";
@@ -42,6 +43,15 @@ const WORD_REACTIONS = {
     mood: "happy",
     chance: 0.9,
   },
+};
+
+const WORD_INITIAL_HINTS = {
+  frodo: "Mirá bien al personaje más pequeño… no está solo.",
+  michi: "Fijate quién está cerca de la chica que canta.",
+  nueve: "Observá los números que parecen decoración.",
+  dos: "No todos los números llaman la atención de la misma forma.",
+  takis: "Algo raro está en los pies…",
+  aliens: "Al fondo de la escena hay algo que no pertenece.",
 };
 
 const WORD_HINTS = {
@@ -119,8 +129,12 @@ function typeText(text, speed = 40) {
 // GUIDE · HABLAR / SILENCIO
 // ==============================
 function guideSpeak(text, options = {}) {
-  const { duration = 2200, screen = "game", mood = "neutral", chance = 1 } =
-    options;
+  const {
+    screen = "game",
+    mood = "neutral",
+    chance = 1,
+    typing = true,
+  } = options;
 
   if (
     GUIDE_STATE.screen !== screen ||
@@ -130,25 +144,42 @@ function guideSpeak(text, options = {}) {
   )
     return;
 
+  // ✂️ cortar cualquier tipeo previo
   isTyping = false;
   clearTimeout(typingTimeout);
+
+  // ⏱️ DURACIÓN DINÁMICA
+  const baseTime = 1800; // tiempo mínimo visible
+  const perChar = 55; // ms por caracter
+  const typingTime = typing ? text.length * 40 : 0;
+
+  const duration = baseTime + text.length * perChar + typingTime;
+
   guideCooldown = true;
 
+  // 🎭 mood
   guide.classList.remove("happy", "curious", "annoyed");
   if (mood !== "neutral") guide.classList.add(mood);
 
   guide.classList.remove("silent");
   guide.classList.add("show");
 
-  typeText(text);
+  // 💬 texto
+  if (typing) {
+    typeText(text, 40);
+  } else {
+    bubble.textContent = text;
+  }
 
+  // 🫥 ocultar
   setTimeout(() => {
     guide.classList.remove("show", "happy", "curious", "annoyed");
   }, duration);
 
+  // 🔓 liberar cooldown
   setTimeout(() => {
     guideCooldown = false;
-  }, duration + 800);
+  }, duration + 600);
 }
 
 function guideSilent({ duration = 1800, mood = "neutral", chance = 1 } = {}) {
@@ -169,7 +200,10 @@ function guideSilent({ duration = 1800, mood = "neutral", chance = 1 } = {}) {
   guide.classList.remove("silent");
   guide.classList.add("show");
 
-  setTimeout(() => guide.classList.remove("show", "happy", "curious", "annoyed"), duration);
+  setTimeout(
+    () => guide.classList.remove("show", "happy", "curious", "annoyed"),
+    duration,
+  );
   setTimeout(() => (guideCooldown = false), duration + 600);
 }
 
@@ -177,7 +211,9 @@ function guideSilent({ duration = 1800, mood = "neutral", chance = 1 } = {}) {
 // HELPERS
 // ==============================
 function showScreen(nextScreen) {
-  document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+  document
+    .querySelectorAll(".screen")
+    .forEach((s) => s.classList.remove("active"));
   nextScreen.classList.add("active");
 
   if (nextScreen === gameScreen) {
@@ -197,6 +233,20 @@ function normalize(text) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+function giveInitialHint(input) {
+  const key = normalize(input.dataset.answer).toLowerCase();
+
+  if (initialHintsShown.has(key) || !WORD_INITIAL_HINTS[key] || input.disabled)
+    return;
+
+  initialHintsShown.add(key);
+
+  guideSpeak(WORD_INITIAL_HINTS[key], {
+    mood: "curious",
+    chance: 1,
+  });
+}
+
 function giveHintForInput(input) {
   const key = normalize(input.dataset.answer).toLowerCase();
   const hints = WORD_HINTS[key];
@@ -209,10 +259,10 @@ function giveHintForInput(input) {
   guideSpeak(hints[used], { mood: "curious" });
 }
 
-function scheduleHint(input, delay = 12000) {
+function scheduleHint(input, delay = 6000) {
   setTimeout(() => {
-    if (!input.disabled && GUIDE_STATE.screen === "game") {
-      giveHintForInput(input);
+    if (!input.disabled && !input.value && GUIDE_STATE.screen === "game") {
+      giveInitialHint(input);
     }
   }, delay);
 }
@@ -226,10 +276,37 @@ function startIntro() {
 
   guide.classList.add("intro-top");
 
-  setTimeout(() => session === introSession && (bubble.textContent = "La fiesta será en.....", guide.classList.add("show")), 400);
-  setTimeout(() => session === introSession && (bubble.textContent = "OH! Algo del mensaje se perdió en el camino…"), 2200);
-  setTimeout(() => session === introSession && (introCard.style.animation = "cardEnter 0.9s ease-out forwards"), 4000);
-  setTimeout(() => session === introSession && guide.classList.add("silent"), 9800);
+  setTimeout(
+    () =>
+      session === introSession &&
+      ((bubble.textContent = "La fiesta será en....."),
+      guide.classList.add("show")),
+    400,
+  );
+  setTimeout(
+    () =>
+      session === introSession &&
+      (bubble.textContent = "OH! Algo del mensaje se perdió en el camino…"),
+    2200,
+  );
+  setTimeout(
+    () =>
+      session === introSession &&
+      (introCard.style.animation = "cardEnter 0.9s ease-out forwards"),
+    4000,
+  );
+  setTimeout(
+    () => session === introSession && guide.classList.add("silent"),
+    9800,
+  );
+
+  setTimeout(() => {
+    if (session !== introSession) return;
+
+    startBtn.style.pointerEvents = "auto";
+    startBtn.style.opacity = "1";
+    startBtn.classList.add("ready");
+  }, 9000);
 }
 
 window.addEventListener("load", startIntro);
@@ -241,6 +318,9 @@ startBtn?.addEventListener("click", () => {
   introSession++;
   guide.classList.add("silent");
   showScreen(gameScreen);
+
+  // 🐾 programar pistas iniciales por input
+  inputs.forEach((input) => scheduleHint(input));
 });
 
 // ==============================
@@ -250,7 +330,7 @@ let solvedCount = 0;
 let errorCount = 0;
 
 inputs.forEach((input) =>
-  input.addEventListener("input", () => checkInput(input))
+  input.addEventListener("input", () => checkInput(input)),
 );
 
 function checkInput(input) {
@@ -309,7 +389,9 @@ function checkAllSolved() {
     }
 
     localStorage.setItem(STORAGE_KEY, "true");
-    guideSpeak("Ahí está… el mensaje vuelve", { mood: "happy", duration: 3000 });
+    guideSpeak("Ahí está… el mensaje vuelve", {
+      mood: "happy",
+    });
     setTimeout(() => showScreen(finalScreen), 1200);
   }
 }
