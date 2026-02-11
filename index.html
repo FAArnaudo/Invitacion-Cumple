@@ -1,101 +1,93 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Invitación Encriptada</title>
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Invitación Encriptada</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
 
-  <link rel="stylesheet" href="style.css" />
-</head>
-
-<body>
-
-  <!-- =========================
+  <body>
+    <!-- =========================
          PANTALLA 1 · INTRO
     ========================== -->
-  <section id="intro" class="screen active">
-    <div class="shooting-star"></div>
-    <div class="card">
-      <h1>📡 <span class="glitch">Interferencia</span> detectada</h1>
+    <section id="intro" class="screen active">
+      <div class="shooting-star"></div>
+      <div class="card">
+        <h1>📡 <span class="glitch">Interferencia</span> detectada</h1>
 
-      <p>
-        La invitación fue enviada,<br />
-        pero algo alteró el mensaje.
-      </p>
+        <p>
+          La invitación fue enviada,<br />
+          pero algo alteró el mensaje.
+        </p>
 
-      <p>
-        Resuelve el puzzle y reconstruí<br />
-        el mensaje para descubrir los datos.
-      </p>
+        <p>
+          Resuelve el puzzle y reconstruí<br />
+          el mensaje para descubrir los datos.
+        </p>
 
-      <button id="startBtn">Reconstruir mensaje</button>
-    </div>
-  </section>
+        <button id="startBtn">Reconstruir mensaje</button>
+      </div>
+    </section>
 
-  <!-- =========================
+    <!-- =========================
         PANTALLA 2 · JUEGO
     ========================== -->
-  <section id="game" class="screen">
-    <div class="background"></div>
+    <section id="game" class="screen">
+      <div class="background"></div>
 
-    <div class="card puzzle-card">
-      <h2>🔐 Mensaje fragmentado</h2>
-      <p class="hint">
-        Todas las palabras nacen de la misma base.
-      </p>
+      <div class="card puzzle-card">
+        <h2>🔐 Mensaje fragmentado</h2>
+        <p class="hint">Todas las palabras nacen de la misma base.</p>
 
-      <div class="puzzle-grid cross">
-        <div class="inputs">
-          <input data-answer="FRODO" placeholder="F _ _ _ _" />
-          <input data-answer="MICHI" placeholder="_ I _ _ _" />
-          <input data-answer="NUEVE" placeholder="_ _ E _ _" />
-          <input data-answer="DOS" placeholder="_ _ S" />
-          <input data-answer="TAKIS" placeholder="T _ _ _ _" />
-          <input data-answer="ALIENS" placeholder="A _ _ _ _ _" />
+        <div class="puzzle-grid cross">
+          <div class="inputs">
+            <input data-answer="FRODO" placeholder="F _ _ _ _" />
+            <input data-answer="MICHI" placeholder="_ I _ _ _" />
+            <input data-answer="NUEVE" placeholder="_ _ E _ _" />
+            <input data-answer="DOS" placeholder="_ _ S" />
+            <input data-answer="TAKIS" placeholder="T _ _ _ _" />
+            <input data-answer="ALIENS" placeholder="A _ _ _ _ _" />
+          </div>
         </div>
+
+        <p id="errorMsg" class="error"></p>
       </div>
+    </section>
 
-      <p id="errorMsg" class="error"></p>
-    </div>
-  </section>
-
-
-  <!-- =========================
+    <!-- =========================
          PANTALLA 3 · FINAL
     ========================== -->
-<section id="final" class="screen">
-  <div class="background"></div>
+    <section id="final" class="screen">
+      <div class="background"></div>
 
-  <div class="card">
-    <h1>🎉 Mensaje reconstruido</h1>
+      <div class="card">
+        <h1>🎉 Mensaje reconstruido</h1>
 
-    <p class="final-text">
-      La interferencia fue eliminada.<br />
-      Estos son los datos reales:
-    </p>
+        <p class="final-text">
+          La interferencia fue eliminada.<br />
+          Estos son los datos reales:
+        </p>
 
-    <ul class="info">
-      <li>📍 <strong>Lugar:</strong> (revelar)</li>
-      <li>📅 <strong>Fecha:</strong> (revelar)</li>
-      <li>⏰ <strong>Hora:</strong> (revelar)</li>
-    </ul>
+        <ul class="info">
+          <li>📍 <strong>Lugar:</strong> (revelar)</li>
+          <li>📅 <strong>Fecha:</strong> (revelar)</li>
+          <li>⏰ <strong>Hora:</strong> (revelar)</li>
+        </ul>
 
-    <p class="footer">
-      Guardá este link 😉
-    </p>
-  </div>
-</section>
+        <p class="footer">Guardá este link 😉</p>
+      </div>
+    </section>
 
-  <!-- =========================
+    <!-- =========================
          ANIMAL GUÍA
     ========================= -->
-  <div id="guide">
-    <img src="assets/img/guide-cat.png" alt="Guía" class="avatar" />
-    <div class="bubble"></div>
-  </div>
+    <div id="guide">
+      <img src="assets/img/guide-cat.png" alt="Guía" class="avatar" />
+      <div class="bubble"></div>
+    </div>
 
-  <script src="script.js"></script>
-</body>
-
+    <script src="script.js"></script>
+  </body>
 </html>
