@@ -1,40 +1,42 @@
+// ==============================
+// CONFIG
+// ==============================
 const DEV_MODE = true;
+const STORAGE_KEY = "mensaje_descifrado";
 
+// ==============================
+// RESET DEV
+// ==============================
 if (DEV_MODE) {
-  localStorage.removeItem("invitacion_resuelta");
+  localStorage.removeItem(STORAGE_KEY);
 }
 
 // ==============================
-// CONFIGURACIÓN GENERAL
-// ==============================
-
-// Código correcto (luego lo ligamos a la imagen)
-const SECRET_CODE = "GATO29"; // ejemplo: puede cambiarse
-
-// ==============================
-// ELEMENTOS DEL DOM
+// ELEMENTOS
 // ==============================
 const introScreen = document.getElementById("intro");
-const puzzleScreen = document.getElementById("puzzle");
-const revealScreen = document.getElementById("reveal");
+const gameScreen = document.getElementById("game");
+const finalScreen = document.getElementById("final");
 
 const startBtn = document.getElementById("startBtn");
-const checkCodeBtn = document.getElementById("checkCode");
-const codeInput = document.getElementById("codeInput");
+const inputs = document.querySelectorAll(".inputs input");
 const errorMsg = document.getElementById("errorMsg");
 
-// ==============================
-// FUNCIONES AUXILIARES
-// ==============================
+const guide = document.getElementById("guide");
+const bubble = guide.querySelector(".bubble");
+const introCard = introScreen.querySelector(".card");
 
-function showScreen(screenToShow) {
-  // Oculta todas
-  introScreen.classList.remove("active");
-  puzzleScreen.classList.remove("active");
-  revealScreen.classList.remove("active");
+const baseLetters = document.querySelectorAll(".puzzle-grid .letter");
 
-  // Muestra la deseada
-  screenToShow.classList.add("active");
+// ==============================
+// HELPERS
+// ==============================
+function showScreen(nextScreen) {
+  document.querySelectorAll(".screen").forEach(screen => {
+    screen.classList.remove("active");
+  });
+
+  nextScreen.classList.add("active");
 }
 
 function normalize(text) {
@@ -46,77 +48,102 @@ function normalize(text) {
 }
 
 // ==============================
-// EVENTOS
+// INTRO · SECUENCIA GUIADA
 // ==============================
+window.addEventListener("load", () => {
+  // Posición arriba
+  guide.classList.add("intro-top");
 
-// Ir de Intro -> Puzzle
-startBtn.addEventListener("click", () => {
-  showScreen(puzzleScreen);
-  codeInput.focus();
-});
-
-// Verificar código
-checkCodeBtn.addEventListener("click", checkCode);
-codeInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    checkCode();
-  }
-});
-
-function checkCode() {
-  const userCode = normalize(codeInput.value);
-
-  if (!userCode) {
-    errorMsg.textContent = "¿Seguro que no viste ninguna pista?";
-    return;
-  }
-
-  if (userCode === SECRET_CODE) {
-    success();
-  } else {
-    fail();
-  }
-}
-
-// ==============================
-// RESULTADOS
-// ==============================
-
-function success() {
-  errorMsg.textContent = "";
-
-  // Animación simple
-  puzzleScreen.style.opacity = "0";
-
+  // Aparece el gato
   setTimeout(() => {
-    puzzleScreen.style.opacity = "1";
-    showScreen(revealScreen);
+    bubble.textContent = "La fiesta será en.....";
+    guide.classList.add("show");
   }, 400);
 
-  // Guardar progreso
-  localStorage.setItem("invitacion_resuelta", "true");
+  setTimeout(() => {
+    bubble.textContent = "OH... Algo del mensaje se perdió en el camino…";
+    guide.classList.add("show");
+  }, 2200);
+
+  // Aparece la card
+  setTimeout(() => {
+    introCard.style.animation = "cardEnter 0.9s ease-out forwards";
+  }, 4000);
+
+  // El gato baja, se calla y queda a un costado
+  setTimeout(() => {
+    guide.classList.remove("intro-top");
+    guide.classList.add("silent");
+    guide.classList.add("show");
+  }, 9800);
+});
+
+// ==============================
+// INTRO → GAME
+// ==============================
+if (startBtn) {
+  console.log("startBtn found:", startBtn);
+  startBtn.addEventListener("click", () => {
+    console.log("startBtn clicked!");
+    if (gameScreen) {
+      showScreen(gameScreen);
+    } else {
+      console.error("gameScreen not found!");
+    }
+  });
+} else {
+  console.error("startBtn not found!");
 }
 
-function fail() {
-  errorMsg.textContent = "Mmm… esa no es la respuesta. Mirá mejor la imagen 👀";
-  codeInput.value = "";
 
-  // Pequeño shake
-  codeInput.animate(
-    [
-      { transform: "translateX(0px)" },
-      { transform: "translateX(-6px)" },
-      { transform: "translateX(6px)" },
-      { transform: "translateX(0px)" }
-    ],
-    { duration: 300 }
-  );
+// ==============================
+// PUZZLE LOGIC
+// ==============================
+inputs.forEach((input) => {
+  input.addEventListener("input", () => {
+    checkInput(input);
+  });
+});
+
+function checkInput(input) {
+  const correct = normalize(input.dataset.answer);
+  const value = normalize(input.value);
+
+  if (!value) return;
+
+  if (value === correct) {
+    input.value = correct;
+    input.disabled = true;
+    input.classList.add("ok");
+    errorMsg.textContent = "";
+
+    // 🔹 activar letra base correspondiente
+    const index = [...inputs].indexOf(input);
+    baseLetters[index]?.classList.add("active");
+
+    checkAllSolved();
+  } else if (value.length >= correct.length) {
+    errorMsg.textContent = "Esa palabra no encaja… mirá mejor la imagen 👀";
+  } else {
+    errorMsg.textContent = "";
+  }
+}
+
+function checkAllSolved() {
+  const allSolved = [...inputs].every((input) => input.disabled);
+
+  if (allSolved) {
+    localStorage.setItem(STORAGE_KEY, "true");
+
+    setTimeout(() => {
+      showScreen(finalScreen);
+    }, 1200);
+  }
 }
 
 // ==============================
-// AUTO-DESBLOQUEO (opcional)
+// AUTO-RESTORE
 // ==============================
-
-if (localStorage.getItem("invitacion_resuelta") === "true") {
-  showScreen(revealScreen);
+if (!DEV_MODE && localStorage.getItem(STORAGE_KEY) === "true") {
+  showScreen(finalScreen);
 }
