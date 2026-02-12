@@ -39,7 +39,10 @@
 
       <div class="card puzzle-card">
         <h2>🔐 Mensaje fragmentado</h2>
-        <p class="hint">Descubre las palabras, todas representan objetos que estan en la imagen de invitacion.</p>
+        <p class="hint">
+          Descubre las palabras, todas representan objetos que estan en la
+          imagen de invitacion.
+        </p>
 
         <div class="puzzle-grid cross">
           <div class="inputs">
@@ -60,23 +63,47 @@
          PANTALLA 3 · FINAL
     ========================== -->
     <section id="final" class="screen">
+      <!-- Fondo revelado -->
       <div class="background"></div>
 
+      <!-- Card principal -->
       <div class="card">
-        <h1>🎉 Mensaje reconstruido</h1>
+        <h2>🎉 ¡La fiesta está confirmada!</h2>
 
         <p class="final-text">
-          La interferencia fue eliminada.<br />
-          Estos son los datos reales:
+          Ahora que el mensaje volvió, ya podemos decirlo:
         </p>
 
         <ul class="info">
-          <li>📍 <strong>Lugar:</strong> (revelar)</li>
-          <li>📅 <strong>Fecha:</strong> (revelar)</li>
-          <li>⏰ <strong>Hora:</strong> (revelar)</li>
+          <li>📅 <strong>Fecha:</strong> 21/02/2026</li>
+          <li>⏰ <strong>Hora:</strong> 20:00 hs</li>
+          <li>
+            📍 <strong>Lugar:</strong>
+            <a
+              href="https://maps.app.goo.gl/fFBZCZXigWW5rFEB9"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Ver ubicación en Google Maps
+            </a>
+          </li>
         </ul>
 
-        <p class="footer">Guardá este link 😉</p>
+        <!-- Confirmación asistencia -->
+        <label
+          style="
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: center;
+            margin-top: 12px;
+          "
+        >
+          <input type="checkbox" id="attendanceCheck" />
+          <span>Confirmo mi asistencia</span>
+        </label>
+
+        <p class="footer">Dale wachoo se va descontrolaaaa 😉</p>
       </div>
     </section>
 
@@ -89,5 +116,11 @@
     </div>
 
     <script src="script.js"></script>
+
+    <!-- =========================
+     AUDIO · FIESTA FINAL
+    ========================= -->
+    <audio id="partySound" src="assets/audio/fiesta_ambiente.mp3"></audio>
+
   </body>
 </html>

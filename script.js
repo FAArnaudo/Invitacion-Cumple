@@ -7,6 +7,9 @@ const GUIDE_STATE = {
   canSpeak: false,
 };
 
+let activeInput = null;
+let attendanceReacted = false;
+let persistentHintText = null;
 let curiosityShown = false;
 let introSession = 0;
 let typingTimeout = null;
@@ -23,6 +26,11 @@ const initialHintsShown = new Set();
 
 const DEV_MODE = true;
 const STORAGE_KEY = "mensaje_descifrado";
+
+// ==============================
+// STORAGE · ASISTENCIA
+// ==============================
+const ATTENDANCE_KEY = "asistencia_confirmada";
 
 // ==============================
 // REACCIONES Y PISTAS
@@ -46,12 +54,12 @@ const WORD_REACTIONS = {
 };
 
 const WORD_INITIAL_HINTS = {
-  frodo: "Mirá bien al personaje más pequeño… no está solo.",
-  michi: "Fijate quién está cerca de la chica que canta.",
-  nueve: "Observá los números que parecen decoración.",
-  dos: "No todos los números llaman la atención de la misma forma.",
-  takis: "Algo raro está en los pies…",
-  aliens: "Al fondo de la escena hay algo que no pertenece.",
+  frodo: "Para el primero, busca al personaje con el anillo... mi precioso, si",
+  michi: "Fijate quien se asoma bajo la mesa.",
+  nueve: "El numero mas alto que compone la edad del cumpleañero.",
+  dos: "El numero mas chico que compone la edad del cumpleañero.",
+  takis: "Junto a las velaas… ta que pica",
+  aliens: "Al fondo de la escena hay algo que no pertenece a este planeta.",
 };
 
 const WORD_HINTS = {
@@ -129,6 +137,8 @@ function typeText(text, speed = 40) {
 // GUIDE · HABLAR / SILENCIO
 // ==============================
 function guideSpeak(text, options = {}) {
+  if (persistentHintText && activeInput) return;
+
   const {
     screen = "game",
     mood = "neutral",
@@ -173,13 +183,42 @@ function guideSpeak(text, options = {}) {
 
   // 🫥 ocultar
   setTimeout(() => {
-    guide.classList.remove("show", "happy", "curious", "annoyed");
+    guide.classList.remove("happy", "curious", "annoyed");
+
+    // 🔁 volver a pista persistente si existe
+    if (persistentHintText && activeInput && !activeInput.disabled) {
+      bubble.textContent = persistentHintText;
+      guide.classList.add("show");
+    } else {
+      guide.classList.remove("show");
+    }
   }, duration);
 
   // 🔓 liberar cooldown
   setTimeout(() => {
     guideCooldown = false;
   }, duration + 600);
+}
+
+function showPersistentHint(input) {
+  if (!input || input.disabled) return;
+
+  const key = normalize(input.dataset.answer).toLowerCase();
+  const hint = WORD_INITIAL_HINTS[key];
+  if (!hint) return;
+
+  persistentHintText = hint;
+
+  // cortar cualquier animación previa
+  isTyping = false;
+  clearTimeout(typingTimeout);
+  guideCooldown = false;
+
+  guide.classList.remove("happy", "curious", "annoyed");
+  guide.classList.remove("silent");
+  guide.classList.add("show");
+
+  bubble.textContent = hint;
 }
 
 function guideSilent({ duration = 1800, mood = "neutral", chance = 1 } = {}) {
@@ -223,6 +262,32 @@ function showScreen(nextScreen) {
   } else {
     GUIDE_STATE.canSpeak = false;
   }
+
+  if (nextScreen === finalScreen) {
+    GUIDE_STATE.screen = "final";
+    GUIDE_STATE.canSpeak = false;
+    guide.classList.add("silent");
+
+    const partySound = document.getElementById("partySound");
+
+    if (partySound) {
+      partySound.volume = 0.35;
+      partySound.play().catch(() => {});
+
+      // 🎶 cuando termina → fade out
+      partySound.onended = () => {
+        fadeOutAudio(partySound, 1200);
+      };
+    }
+
+    // 🐱 cierre narrativo
+    setTimeout(() => {
+      guideSpeak("Ahora sí… la fiesta está completa. Nos vemos ahí 🐾🎉", {
+        mood: "happy",
+        chance: 1,
+      });
+    }, 800);
+  }
 }
 
 function normalize(text) {
@@ -261,7 +326,12 @@ function giveHintForInput(input) {
 
 function scheduleHint(input, delay = 6000) {
   setTimeout(() => {
-    if (!input.disabled && !input.value && GUIDE_STATE.screen === "game") {
+    if (
+      !input.disabled &&
+      !input.value &&
+      GUIDE_STATE.screen === "game" &&
+      activeInput === null // ⬅️ CLAVE
+    ) {
       giveInitialHint(input);
     }
   }, delay);
@@ -333,6 +403,13 @@ inputs.forEach((input) =>
   input.addEventListener("input", () => checkInput(input)),
 );
 
+inputs.forEach((input) => {
+  input.addEventListener("focus", () => {
+    activeInput = input;
+    showPersistentHint(input);
+  });
+});
+
 function checkInput(input) {
   const correct = normalize(input.dataset.answer);
   const value = normalize(input.value);
@@ -341,6 +418,11 @@ function checkInput(input) {
   if (value === correct) {
     input.value = correct;
     input.disabled = true;
+
+    if (activeInput === input) {
+      activeInput = null;
+      persistentHintText = null;
+    }
     solvedCount++;
 
     if (solvedCount === 1 && !firstSolvedReacted) {
@@ -392,6 +474,151 @@ function checkAllSolved() {
     guideSpeak("Ahí está… el mensaje vuelve", {
       mood: "happy",
     });
-    setTimeout(() => showScreen(finalScreen), 1200);
+    startConfetti(6000);
+    setTimeout(() => showScreen(finalScreen), 2000);
+    playFinalNarrative();
   }
+}
+
+// ==============================
+// FINAL · CONFIRMACIÓN ASISTENCIA
+// ==============================
+
+attendanceCheck.addEventListener("change", () => {
+  if (attendanceCheck.checked) {
+    window.open("https://forms.gle/Uo8rwpkiWzmjtiCi8", "_blank");
+
+    guideSpeak("Perfecto 😸 ya quedó registrada.", {
+      screen: "final",
+      mood: "happy",
+    });
+  }
+});
+
+// ==============================
+// FINAL · CONFETTI DE CELEBRACIÓN
+// ==============================
+
+let confettiCanvas = null;
+let confettiCtx = null;
+let confettiParticles = [];
+let confettiRunning = false;
+
+function startConfetti(duration = 5000) {
+  if (confettiRunning) return;
+  confettiRunning = true;
+
+  confettiCanvas = document.createElement("canvas");
+  confettiCanvas.style.position = "fixed";
+  confettiCanvas.style.top = "0";
+  confettiCanvas.style.left = "0";
+  confettiCanvas.style.width = "100%";
+  confettiCanvas.style.height = "100%";
+  confettiCanvas.style.pointerEvents = "none";
+  confettiCanvas.style.zIndex = "9999";
+
+  document.body.appendChild(confettiCanvas);
+
+  confettiCanvas.width = window.innerWidth;
+  confettiCanvas.height = window.innerHeight;
+  confettiCtx = confettiCanvas.getContext("2d");
+
+  confettiParticles = Array.from({ length: 140 }, () => ({
+    x: Math.random() * confettiCanvas.width,
+    y: Math.random() * -confettiCanvas.height,
+    size: 6 + Math.random() * 6,
+    speed: 2 + Math.random() * 4,
+    angle: Math.random() * Math.PI * 2,
+    spin: (Math.random() - 0.5) * 0.2,
+    color: `hsl(${Math.random() * 360}, 90%, 60%)`,
+  }));
+
+  function draw() {
+    confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+    confettiParticles.forEach((p) => {
+      p.y += p.speed;
+      p.angle += p.spin;
+
+      confettiCtx.save();
+      confettiCtx.translate(p.x, p.y);
+      confettiCtx.rotate(p.angle);
+      confettiCtx.fillStyle = p.color;
+      confettiCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+      confettiCtx.restore();
+
+      if (p.y > confettiCanvas.height + 20) {
+        p.y = -20;
+        p.x = Math.random() * confettiCanvas.width;
+      }
+    });
+
+    if (confettiRunning) requestAnimationFrame(draw);
+  }
+
+  draw();
+
+  setTimeout(() => {
+    confettiRunning = false;
+    confettiCanvas.remove();
+  }, duration);
+}
+
+// ==============================
+// FINAL · CIERRE NARRATIVO DEL GATO
+// ==============================
+
+let finalNarrativeShown = false;
+
+function playFinalNarrative() {
+  if (finalNarrativeShown) return;
+  if (GUIDE_STATE.screen !== "final") return;
+
+  finalNarrativeShown = true;
+
+  setTimeout(() => {
+    guideSpeak(
+      "Algunas pistas se pierden… pero las cosas importantes siempre encuentran la forma de llegar.",
+      { screen: "final", mood: "curious" },
+    );
+  }, 1200);
+
+  setTimeout(() => {
+    guideSpeak("Ahora ya sabés dónde y cuándo.", {
+      screen: "final",
+      mood: "neutral",
+    });
+  }, 5200);
+
+  setTimeout(() => {
+    guideSpeak("Yo voy a estar ahí… observando desde algún rincón 😼", {
+      screen: "final",
+      mood: "happy",
+    });
+  }, 9000);
+}
+
+// =========================
+// AUDIO · FADE OUT
+// =========================
+function fadeOutAudio(audio, duration = 1500) {
+  if (!audio) return;
+
+  const steps = 20;
+  const stepTime = duration / steps;
+  const startVolume = audio.volume;
+
+  let step = 0;
+
+  const fade = setInterval(() => {
+    step++;
+    audio.volume = startVolume * (1 - step / steps);
+
+    if (step >= steps) {
+      clearInterval(fade);
+      audio.pause();
+      audio.currentTime = 0;
+      audio.volume = startVolume; // reset por si se reutiliza
+    }
+  }, stepTime);
 }
