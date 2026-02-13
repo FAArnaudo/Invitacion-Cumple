@@ -10,7 +10,6 @@ const GUIDE_STATE = {
 
 let hintTimeout = null;
 let activeInput = null;
-let attendanceReacted = false;
 let persistentHintText = null;
 let curiosityShown = false;
 let introSession = 0;
@@ -28,7 +27,7 @@ const commentedWords = new Set();
 const hintProgress = new Map();
 const initialHintsShown = new Set();
 
-const DEV_MODE = true;
+const DEV_MODE = false;
 const STORAGE_KEY = "mensaje_descifrado";
 const ATTENDANCE_KEY = "asistencia_confirmada";
 const AUDIO_PLAYED_KEY = "audio_fiesta_reproducido";
@@ -88,7 +87,7 @@ const WORD_INITIAL_HINTS = {
   frodo: "Para el primero, busca al personaje con el anillo… quien es?",
   michi: "ps ps ps… Fijate quien se asoma bajo la mesa. Soy un M… ?",
   nueve: "Un numerooo… anda colgado por las luces…",
-  dos: "Otro numero. El que faltaba…",
+  dos: "Un numero? Para mi los foquitos no son así, pero como no se de luces…",
   takis: "Junto a las velas… TA Ke pIcaaS!!",
   aliens:
     "Quienes estan al fondo? Verdes… cabezones… andan en platillos voladores",
@@ -206,8 +205,8 @@ function guideSpeak(text, options = {}) {
 
   const isFinal = screen === "final";
 
-  const readTimePerChar = isFinal ? 40 : 100;
-  const minVisible = isFinal ? 1000 : 3800;
+  const readTimePerChar = isFinal ? 20 : 100;
+  const minVisible = isFinal ? 2000 : 3800;
 
   const visibleTime = Math.max(minVisible, text.length * readTimePerChar);
 
@@ -625,7 +624,7 @@ function checkInput(input) {
   }
 }
 
-function checkAllSolved(fromUserGesture = false) {
+function checkAllSolved() {
   if (solvedCount === 3 && !curiosityShown) {
     curiosityShown = true;
     guideSpeak("Esto empieza a tener sentido…", { mood: "curious" });
@@ -634,16 +633,22 @@ function checkAllSolved(fromUserGesture = false) {
   if ([...inputs].every((i) => i.disabled)) {
     if (!lastSolvedReacted) {
       lastSolvedReacted = true;
-      guideSpeak("Eso era lo que faltaba…", { mood: "happy" });
+      guideSpeak("Eso era lo que faltaba… Ahí está… el mensaje vuelve", {
+        mood: "happy",
+      });
     }
 
-    guideSpeak("Ahí está… el mensaje vuelve", {
-      mood: "happy",
-    });
-
     const partySound = document.getElementById("partySound");
-    if (partySound) {
-      partySound.volume = 0.3; // 🔊 ARRANCA LA FIESTA
+    if (partySound && localStorage.getItem(AUDIO_PLAYED_KEY) !== "true") {
+      partySound.currentTime = 0;
+      partySound.volume = 0.35;
+
+      partySound
+        .play()
+        .then(() => {
+          localStorage.setItem(AUDIO_PLAYED_KEY, "true");
+        })
+        .catch((e) => console.warn("🔇 Audio bloqueado:", e));
     }
 
     // ✅ marcar como resuelto UNA SOLA VEZ
@@ -798,7 +803,7 @@ function estimateGuideDuration(text, typing = true) {
   const typingSpeed = 45;
   const typingTime = typing ? text.length * typingSpeed : 0;
 
-  const readTimePerChar = 100;
+  const readTimePerChar = 40;
   const visibleTime = Math.max(3800, text.length * readTimePerChar);
 
   return typingTime + visibleTime;
