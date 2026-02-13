@@ -14,6 +14,7 @@
     ========================== -->
     <section id="intro" class="screen active">
       <div class="shooting-star"></div>
+
       <div class="card">
         <h1>📡 <span class="glitch">Interferencia</span> detectada</h1>
 
@@ -32,16 +33,17 @@
     </section>
 
     <!-- =========================
-        PANTALLA 2 · JUEGO
+         PANTALLA 2 · JUEGO
     ========================== -->
     <section id="game" class="screen">
       <div class="background"></div>
 
       <div class="card puzzle-card">
         <h2>🔐 Mensaje fragmentado</h2>
+
         <p class="hint">
-          Descubre las palabras, todas representan objetos que estan en la
-          imagen de invitacion.
+          Descubre las palabras, todas representan objetos que están en la
+          imagen de la invitación.
         </p>
 
         <div class="puzzle-grid cross">
@@ -55,6 +57,7 @@
           </div>
         </div>
 
+        <!-- Opcional: solo si JS lo usa -->
         <p id="errorMsg" class="error"></p>
       </div>
     </section>
@@ -63,10 +66,8 @@
          PANTALLA 3 · FINAL
     ========================== -->
     <section id="final" class="screen">
-      <!-- Fondo revelado -->
       <div class="background"></div>
 
-      <!-- Card principal -->
       <div class="card">
         <h2>🎉 ¡La fiesta está confirmada!</h2>
 
@@ -80,16 +81,16 @@
           <li>
             📍 <strong>Lugar:</strong>
             <a
-              href="https://maps.app.goo.gl/fFBZCZXigWW5rFEB9"
+              href="https://maps.app.goo.gl/hhE3PxZg1N4gp9g56"
               target="_blank"
-              rel="noopener noreferrer"
+              class="map-btn"
             >
-              Ver ubicación en Google Maps
+              📍 Ver ubicación en Google Maps
             </a>
           </li>
         </ul>
 
-        <!-- Confirmación asistencia -->
+        <!-- Confirmación -->
         <label
           style="
             display: flex;
@@ -103,24 +104,23 @@
           <span>Confirmo mi asistencia</span>
         </label>
 
-        <p class="footer">Dale wachoo se va descontrolaaaa 😉</p>
+        <p class="footer">Dale wachoo se va descontrolaaaa 😉✨</p>
       </div>
     </section>
 
     <!-- =========================
-         ANIMAL GUÍA
+         GUÍA · GATO
     ========================= -->
     <div id="guide">
       <img src="assets/img/guide-cat.png" alt="Guía" class="avatar" />
       <div class="bubble"></div>
     </div>
 
-    <script src="script.js"></script>
-
     <!-- =========================
-     AUDIO · FIESTA FINAL
+         AUDIO · FIESTA FINAL
     ========================= -->
     <audio id="partySound" src="assets/audio/fiesta_ambiente.mp3"></audio>
 
+    <script src="script.js"></script>
   </body>
 </html>

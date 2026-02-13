@@ -1,12 +1,14 @@
 // ==============================
 // CONFIG + STATE
 // ==============================
+
 const GUIDE_STATE = {
   screen: "intro", // intro | game | final
   mood: "neutral",
   canSpeak: false,
 };
 
+let hintTimeout = null;
 let activeInput = null;
 let attendanceReacted = false;
 let persistentHintText = null;
@@ -19,6 +21,8 @@ let firstSolvedReacted = false;
 let midProgressReacted = false;
 let lastSolvedReacted = false;
 let annoyedReacted = false;
+let audioUnlocked = false;
+let guideHideTimeout = null;
 
 const commentedWords = new Set();
 const hintProgress = new Map();
@@ -26,11 +30,31 @@ const initialHintsShown = new Set();
 
 const DEV_MODE = true;
 const STORAGE_KEY = "mensaje_descifrado";
+const ATTENDANCE_KEY = "asistencia_confirmada";
+const AUDIO_PLAYED_KEY = "audio_fiesta_reproducido";
+
+window.addEventListener("load", () => {
+  if (isAlreadySolved()) {
+    showScreen(finalScreen);
+
+    // ✅ restaurar asistencia confirmada
+    if (localStorage.getItem(ATTENDANCE_KEY) === "true") {
+      attendanceCheck.checked = true;
+      attendanceCheck.disabled = true;
+    }
+  } else {
+    startIntro();
+  }
+});
 
 // ==============================
-// STORAGE · ASISTENCIA
+// GUIDE · INTRO GAME
 // ==============================
-const ATTENDANCE_KEY = "asistencia_confirmada";
+let gameIntroSpoken = false;
+
+const GAME_INTRO_TEXT =
+  "Acercate wachin. Voy a ayudarte 🐾. Cada palabra está escondida en la imagen. " +
+  "Elige una palabra para completar y te doy una pista.";
 
 // ==============================
 // REACCIONES Y PISTAS
@@ -51,15 +75,23 @@ const WORD_REACTIONS = {
     mood: "happy",
     chance: 0.9,
   },
+
+  // 👇 NUEVO
+  nueve: {
+    text: "Bien visto… ese número estaba escondido.",
+    mood: "neutral",
+    chance: 1,
+  },
 };
 
 const WORD_INITIAL_HINTS = {
-  frodo: "Para el primero, busca al personaje con el anillo... mi precioso, si",
-  michi: "Fijate quien se asoma bajo la mesa.",
-  nueve: "El numero mas alto que compone la edad del cumpleañero.",
-  dos: "El numero mas chico que compone la edad del cumpleañero.",
-  takis: "Junto a las velaas… ta que pica",
-  aliens: "Al fondo de la escena hay algo que no pertenece a este planeta.",
+  frodo: "Para el primero, busca al personaje con el anillo… quien es?",
+  michi: "ps ps ps… Fijate quien se asoma bajo la mesa. Soy un M… ?",
+  nueve: "Un numerooo… anda colgado por las luces…",
+  dos: "Otro numero. El que faltaba…",
+  takis: "Junto a las velas… TA Ke pIcaaS!!",
+  aliens:
+    "Quienes estan al fondo? Verdes… cabezones… andan en platillos voladores",
 };
 
 const WORD_HINTS = {
@@ -87,6 +119,11 @@ const WORD_HINTS = {
   ],
 };
 
+/* =========================
+   LETRAS CLAVE · FIESTA
+========================= */
+const KEY_LETTERS = ["F", "I", "E", "S", "T", "A"];
+
 // ==============================
 // RESET DEV
 // ==============================
@@ -103,6 +140,7 @@ const finalScreen = document.getElementById("final");
 
 const startBtn = document.getElementById("startBtn");
 const inputs = document.querySelectorAll(".inputs input");
+const fiestaLetters = document.querySelectorAll(".base-word div");
 const errorMsg = document.getElementById("errorMsg");
 
 const guide = document.getElementById("guide");
@@ -137,6 +175,10 @@ function typeText(text, speed = 40) {
 // GUIDE · HABLAR / SILENCIO
 // ==============================
 function guideSpeak(text, options = {}) {
+  // ✂️ cortar cualquier tipeo previo
+  clearTimeout(typingTimeout);
+  isTyping = false;
+
   if (persistentHintText && activeInput) return;
 
   const {
@@ -146,24 +188,30 @@ function guideSpeak(text, options = {}) {
     typing = true,
   } = options;
 
+  const ignoreCooldown = screen === "final";
+
   if (
     GUIDE_STATE.screen !== screen ||
     !GUIDE_STATE.canSpeak ||
-    guideCooldown ||
+    (guideCooldown && isTyping) ||
     Math.random() > chance
   )
     return;
 
-  // ✂️ cortar cualquier tipeo previo
-  isTyping = false;
-  clearTimeout(typingTimeout);
+  bubble.textContent = ""; // 🔥 CLAVE: siempre empezar limpio
 
   // ⏱️ DURACIÓN DINÁMICA
-  const baseTime = 1800; // tiempo mínimo visible
-  const perChar = 55; // ms por caracter
-  const typingTime = typing ? text.length * 40 : 0;
+  const typingSpeed = 45; // ms por caracter
+  const typingTime = typing ? text.length * typingSpeed : 0;
 
-  const duration = baseTime + text.length * perChar + typingTime;
+  const isFinal = screen === "final";
+
+  const readTimePerChar = isFinal ? 40 : 100;
+  const minVisible = isFinal ? 1000 : 3800;
+
+  const visibleTime = Math.max(minVisible, text.length * readTimePerChar);
+
+  const duration = typingTime + visibleTime;
 
   guideCooldown = true;
 
@@ -182,37 +230,42 @@ function guideSpeak(text, options = {}) {
   }
 
   // 🫥 ocultar
-  setTimeout(() => {
-    guide.classList.remove("happy", "curious", "annoyed");
+  // ✂️ cancelar cierre anterior
+  if (guideHideTimeout) {
+    clearTimeout(guideHideTimeout);
+    guideHideTimeout = null;
+  }
 
-    // 🔁 volver a pista persistente si existe
-    if (persistentHintText && activeInput && !activeInput.disabled) {
-      bubble.textContent = persistentHintText;
-      guide.classList.add("show");
-    } else {
-      guide.classList.remove("show");
-    }
-  }, duration);
+  if (screen !== "final") {
+    guideHideTimeout = setTimeout(() => {
+      guide.classList.remove("happy", "curious", "annoyed");
 
-  // 🔓 liberar cooldown
-  setTimeout(() => {
-    guideCooldown = false;
-  }, duration + 600);
+      if (persistentHintText && activeInput && !activeInput.disabled) {
+        bubble.textContent = persistentHintText;
+        guide.classList.add("show");
+      } else {
+        guide.classList.remove("show");
+      }
+    }, duration);
+  }
+
+  return duration; // ✅ CLAVE
 }
 
 function showPersistentHint(input) {
   if (!input || input.disabled) return;
+
+  // ⛔ cancelar cualquier reacción en curso
+  isTyping = false;
+  clearTimeout(typingTimeout);
+  guideCooldown = false;
 
   const key = normalize(input.dataset.answer).toLowerCase();
   const hint = WORD_INITIAL_HINTS[key];
   if (!hint) return;
 
   persistentHintText = hint;
-
-  // cortar cualquier animación previa
-  isTyping = false;
-  clearTimeout(typingTimeout);
-  guideCooldown = false;
+  activeInput = input;
 
   guide.classList.remove("happy", "curious", "annoyed");
   guide.classList.remove("silent");
@@ -232,6 +285,7 @@ function guideSilent({ duration = 1800, mood = "neutral", chance = 1 } = {}) {
 
   guideCooldown = true;
   bubble.textContent = "";
+  guide.classList.remove("show");
 
   guide.classList.remove("happy", "curious", "annoyed");
   if (mood !== "neutral") guide.classList.add(mood);
@@ -255,38 +309,55 @@ function showScreen(nextScreen) {
     .forEach((s) => s.classList.remove("active"));
   nextScreen.classList.add("active");
 
+  guide.classList.remove("intro-top");
+  guide.classList.remove("silent");
+
   if (nextScreen === gameScreen) {
+    resetGuide();
+
     GUIDE_STATE.screen = "game";
     GUIDE_STATE.canSpeak = true;
-    inputs.forEach((i) => scheduleHint(i));
+
+    if (!gameIntroSpoken) {
+      gameIntroSpoken = true;
+
+      // 🐱 mensaje inicial PERSISTENTE (no temporal)
+      persistentHintText = GAME_INTRO_TEXT;
+      activeInput = null;
+
+      guide.classList.remove("happy", "curious", "annoyed");
+      guide.classList.remove("silent");
+      guide.classList.add("show");
+
+      typeText(GAME_INTRO_TEXT, 40);
+    }
   } else {
     GUIDE_STATE.canSpeak = false;
   }
 
   if (nextScreen === finalScreen) {
     GUIDE_STATE.screen = "final";
-    GUIDE_STATE.canSpeak = false;
-    guide.classList.add("silent");
+    GUIDE_STATE.canSpeak = true;
 
-    const partySound = document.getElementById("partySound");
-
-    if (partySound) {
-      partySound.volume = 0.35;
-      partySound.play().catch(() => {});
-
-      // 🎶 cuando termina → fade out
-      partySound.onended = () => {
-        fadeOutAudio(partySound, 1200);
-      };
+    // 🔥 LIMPIEZA TOTAL DEL GUIDE
+    if (guideHideTimeout) {
+      clearTimeout(guideHideTimeout);
+      guideHideTimeout = null;
     }
 
-    // 🐱 cierre narrativo
-    setTimeout(() => {
-      guideSpeak("Ahora sí… la fiesta está completa. Nos vemos ahí 🐾🎉", {
-        mood: "happy",
-        chance: 1,
-      });
-    }, 800);
+    guideCooldown = false;
+    isTyping = false;
+    persistentHintText = null;
+    activeInput = null;
+
+    guide.classList.remove("silent", "happy", "curious", "annoyed");
+    guide.classList.add("show");
+
+    bubble.textContent = "";
+    isTyping = false;
+    clearTimeout(typingTimeout);
+
+    playFinalNarrative();
   }
 }
 
@@ -325,22 +396,71 @@ function giveHintForInput(input) {
 }
 
 function scheduleHint(input, delay = 6000) {
+  const key = normalize(input.dataset.answer).toLowerCase();
+
   setTimeout(() => {
     if (
-      !input.disabled &&
-      !input.value &&
-      GUIDE_STATE.screen === "game" &&
-      activeInput === null // ⬅️ CLAVE
+      input.disabled ||
+      initialHintsShown.has(key) ||
+      input.value ||
+      GUIDE_STATE.screen !== "game" ||
+      activeInput !== null ||
+      persistentHintText === GAME_INTRO_TEXT
     ) {
-      giveInitialHint(input);
+      return;
     }
+
+    giveInitialHint(input);
   }, delay);
+}
+
+function isAlreadySolved() {
+  return localStorage.getItem(STORAGE_KEY) === "true";
+}
+
+function playPartyAudioOnce() {
+  if (localStorage.getItem(AUDIO_PLAYED_KEY) === "true") return;
+
+  const partySound = document.getElementById("partySound");
+  if (!partySound) return;
+
+  partySound.currentTime = 0;
+  partySound.volume = 0.35;
+
+  partySound
+    .play()
+    .then(() => {
+      localStorage.setItem(AUDIO_PLAYED_KEY, "true");
+    })
+    .catch((e) => {
+      console.warn("🔇 Audio bloqueado:", e);
+    });
+}
+
+function unlockAudio() {
+  const partySound = document.getElementById("partySound");
+  if (!partySound) return;
+  if (audioUnlocked) return;
+
+  partySound.volume = 0; // 🔇 silencio total
+  partySound.currentTime = 0;
+
+  partySound
+    .play()
+    .then(() => {
+      audioUnlocked = true;
+      console.log("🔊 Audio corriendo en silencio");
+    })
+    .catch((e) => {
+      console.error("Audio bloqueado:", e);
+    });
 }
 
 // ==============================
 // INTRO
 // ==============================
 function startIntro() {
+  if (isAlreadySolved()) return; // ⛔ NO intro si ya se resolvió
   introSession++;
   const session = introSession;
 
@@ -349,25 +469,29 @@ function startIntro() {
   setTimeout(
     () =>
       session === introSession &&
-      ((bubble.textContent = "La fiesta será en....."),
+      ((bubble.textContent = "ANTENCIÓN! La fiesta será en"),
       guide.classList.add("show")),
-    400,
+    300,
+  );
+  setTimeout(
+    () => session === introSession && (bubble.textContent = "…"),
+    3500,
   );
   setTimeout(
     () =>
       session === introSession &&
-      (bubble.textContent = "OH! Algo del mensaje se perdió en el camino…"),
-    2200,
+      (bubble.textContent = "UPS..! Algo del mensaje se perdió en el camino…"),
+    5000,
   );
   setTimeout(
     () =>
       session === introSession &&
       (introCard.style.animation = "cardEnter 0.9s ease-out forwards"),
-    4000,
+    9000,
   );
   setTimeout(
     () => session === introSession && guide.classList.add("silent"),
-    9800,
+    9000,
   );
 
   setTimeout(() => {
@@ -376,18 +500,19 @@ function startIntro() {
     startBtn.style.pointerEvents = "auto";
     startBtn.style.opacity = "1";
     startBtn.classList.add("ready");
-  }, 9000);
+  }, 16000);
 }
-
-window.addEventListener("load", startIntro);
 
 // ==============================
 // INTRO → GAME
 // ==============================
 startBtn?.addEventListener("click", () => {
+  unlockAudio(); // 🔓 CLAVE ABSOLUTA
+
   introSession++;
   guide.classList.add("silent");
   showScreen(gameScreen);
+  guide.classList.remove("intro-top");
 
   // 🐾 programar pistas iniciales por input
   inputs.forEach((input) => scheduleHint(input));
@@ -413,17 +538,38 @@ inputs.forEach((input) => {
 function checkInput(input) {
   const correct = normalize(input.dataset.answer);
   const value = normalize(input.value);
+
   if (!value) return;
 
   if (value === correct) {
+    // 🛑 cortar cualquier pista activa
+    if (hintTimeout) {
+      clearTimeout(hintTimeout);
+      hintTimeout = null;
+    }
+
+    persistentHintText = null;
+    activeInput = null;
+
+    isTyping = false;
+    clearTimeout(typingTimeout);
+    guideCooldown = false;
+
     input.value = correct;
     input.disabled = true;
+    input.classList.add("ok");
 
     if (activeInput === input) {
       activeInput = null;
       persistentHintText = null;
     }
+
     solvedCount++;
+
+    const key = normalize(input.dataset.answer).toLowerCase();
+    initialHintsShown.add(key);
+    persistentHintText = null;
+    activeInput = null;
 
     if (solvedCount === 1 && !firstSolvedReacted) {
       firstSolvedReacted = true;
@@ -431,6 +577,7 @@ function checkInput(input) {
     }
 
     const halfway = Math.ceil(inputs.length / 2);
+
     if (solvedCount === halfway && !midProgressReacted) {
       midProgressReacted = true;
       Math.random() < 0.5
@@ -438,11 +585,31 @@ function checkInput(input) {
         : guideSpeak("Algo empieza a encajar…", { mood: "curious" });
     }
 
-    const key = normalize(input.dataset.answer).toLowerCase();
     if (WORD_REACTIONS[key] && !commentedWords.has(key)) {
       commentedWords.add(key);
       const r = WORD_REACTIONS[key];
-      guideSpeak(r.text, { mood: r.mood, chance: r.chance });
+      guideSpeak(r.text, {
+        mood: r.mood,
+        chance: 1,
+        typing: true,
+      });
+    } else {
+      const genericReactions = [
+        "Bien visto… eso estaba ahí desde el principio.",
+        "Ajá… esa pieza encaja perfecto.",
+        "No cualquiera ve eso a la primera.",
+        "Exacto. Eso también era parte del mensaje.",
+        "Seguimos bien… no aflojes ahora.",
+      ];
+
+      const text =
+        genericReactions[Math.floor(Math.random() * genericReactions.length)];
+
+      guideSpeak(text, {
+        mood: "neutral",
+        chance: 1,
+        typing: true,
+      });
     }
 
     checkAllSolved();
@@ -458,7 +625,7 @@ function checkInput(input) {
   }
 }
 
-function checkAllSolved() {
+function checkAllSolved(fromUserGesture = false) {
   if (solvedCount === 3 && !curiosityShown) {
     curiosityShown = true;
     guideSpeak("Esto empieza a tener sentido…", { mood: "curious" });
@@ -470,13 +637,20 @@ function checkAllSolved() {
       guideSpeak("Eso era lo que faltaba…", { mood: "happy" });
     }
 
-    localStorage.setItem(STORAGE_KEY, "true");
     guideSpeak("Ahí está… el mensaje vuelve", {
       mood: "happy",
     });
-    startConfetti(6000);
-    setTimeout(() => showScreen(finalScreen), 2000);
-    playFinalNarrative();
+
+    const partySound = document.getElementById("partySound");
+    if (partySound) {
+      partySound.volume = 0.3; // 🔊 ARRANCA LA FIESTA
+    }
+
+    // ✅ marcar como resuelto UNA SOLA VEZ
+    localStorage.setItem(STORAGE_KEY, "true");
+
+    setTimeout(() => showScreen(finalScreen), 3000);
+    setTimeout(() => startConfetti(6000), 3000);
   }
 }
 
@@ -486,12 +660,22 @@ function checkAllSolved() {
 
 attendanceCheck.addEventListener("change", () => {
   if (attendanceCheck.checked) {
+    // guardar asistencia
+    localStorage.setItem(ATTENDANCE_KEY, "true");
+
+    // abrir form
     window.open("https://forms.gle/Uo8rwpkiWzmjtiCi8", "_blank");
 
-    guideSpeak("Perfecto 😸 ya quedó registrada.", {
-      screen: "final",
-      mood: "happy",
-    });
+    // bloquear checkbox
+    attendanceCheck.disabled = true;
+
+    // 🐱 el gato SOLO habla si NO estaba resuelto antes
+    if (!isAlreadySolved()) {
+      guideSpeak("Perfecto 😸 ya quedó registrada.", {
+        screen: "final",
+        mood: "happy",
+      });
+    }
   }
 });
 
@@ -576,26 +760,48 @@ function playFinalNarrative() {
 
   finalNarrativeShown = true;
 
-  setTimeout(() => {
-    guideSpeak(
-      "Algunas pistas se pierden… pero las cosas importantes siempre encuentran la forma de llegar.",
-      { screen: "final", mood: "curious" },
-    );
-  }, 1200);
-
-  setTimeout(() => {
-    guideSpeak("Ahora ya sabés dónde y cuándo.", {
-      screen: "final",
+  const steps = [
+    {
+      text: "Algunas pistas se pierden… pero las cosas importantes siempre encuentran la forma de llegar.",
+      mood: "curious",
+    },
+    {
+      text: "Ahora ya sabés dónde y cuándo. Yo voy a estar ahí… observando desde algún rincón 😼",
       mood: "neutral",
-    });
-  }, 5200);
-
-  setTimeout(() => {
-    guideSpeak("Yo voy a estar ahí… observando desde algún rincón 😼", {
-      screen: "final",
+    },
+    {
+      text: "Si no sabés cómo llegar… tocá el botón amarillo",
       mood: "happy",
-    });
-  }, 9000);
+    },
+  ];
+
+  let t = 800; // delay inicial
+  const gap = 600; // pausa entre diálogos
+
+  steps.forEach((step) => {
+    const startTime = t;
+
+    setTimeout(() => {
+      guideSpeak(step.text, {
+        screen: "final",
+        mood: step.mood,
+      });
+    }, startTime);
+
+    // calcular duración ANTES de avanzar el tiempo
+    const duration = estimateGuideDuration(step.text);
+    t += duration + gap;
+  });
+}
+
+function estimateGuideDuration(text, typing = true) {
+  const typingSpeed = 45;
+  const typingTime = typing ? text.length * typingSpeed : 0;
+
+  const readTimePerChar = 100;
+  const visibleTime = Math.max(3800, text.length * readTimePerChar);
+
+  return typingTime + visibleTime;
 }
 
 // =========================
@@ -622,3 +828,84 @@ function fadeOutAudio(audio, duration = 1500) {
     }
   }, stepTime);
 }
+
+// =========================
+// MOBILE · AJUSTE TECLADO
+// =========================
+(function handleMobileKeyboard() {
+  if (!window.visualViewport) return;
+
+  const baseBottom = 24;
+
+  function updateGuidePosition() {
+    const viewport = window.visualViewport;
+    const offset = window.innerHeight - viewport.height;
+
+    // si el teclado está abierto, subimos al gato
+    guide.style.bottom =
+      offset > 0 ? `${baseBottom + offset}px` : `${baseBottom}px`;
+  }
+
+  visualViewport.addEventListener("resize", updateGuidePosition);
+  visualViewport.addEventListener("scroll", updateGuidePosition);
+})();
+
+/* =========================
+   GUIDE · RESET POSICIÓN AL CAMBIAR PANTALLA
+========================= */
+function updateGuidePosition(screenId) {
+  if (!guide) return;
+
+  // Solo en la intro va centrado arriba
+  if (screenId === "intro") {
+    guide.classList.add("intro-top");
+  } else {
+    guide.classList.remove("intro-top");
+  }
+}
+
+// ==============================
+// GUIDE · RESET DURO
+// ==============================
+function resetGuide() {
+  // cortar tipeo
+  isTyping = false;
+  clearTimeout(typingTimeout);
+
+  // limpiar burbuja
+  bubble.textContent = "";
+
+  // reset visual
+  guide.classList.remove("show", "happy", "curious", "annoyed", "silent");
+
+  // estado seguro
+  GUIDE_STATE.canSpeak = true;
+}
+
+// ==============================
+// DEV · RESET MOBILE (TRIPLE TAP)
+// ==============================
+if (DEV_MODE) {
+  let tapCount = 0;
+  let tapTimer = null;
+
+  guide.addEventListener("click", () => {
+    tapCount++;
+
+    clearTimeout(tapTimer);
+    tapTimer = setTimeout(() => {
+      tapCount = 0;
+    }, 800);
+
+    if (tapCount === 3) {
+      localStorage.removeItem("mensaje_descifrado");
+      localStorage.removeItem("asistencia_confirmada");
+
+      alert("🔁 Reset completo");
+
+      location.reload();
+    }
+  });
+}
+
+document.addEventListener("touchstart", unlockAudio, { once: true });
